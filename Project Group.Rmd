@@ -165,14 +165,13 @@ plot(g_sub,
 ```
 
 
-
 ```{r}
 #Check th degrees
 
-g_degree = igraph :: degree(g)
+g_degree = igraph :: degree(g_sub)
 sort(g_degree, decreasing=TRUE) [1:10]
 
-plot(g_degree, V(g)$popularity)
+plot(g_degree, V(g_sub)$popularity)
 
 
 ```
@@ -291,6 +290,48 @@ In pratica, l'output del codice ti fornisce un conteggio delle lunghezze dei cli
 igraph::max_cliques(g) %>% map_dbl(length) %>% table()
 ```
 
+Ad esempio, il valore "2 1189" indica che ci sono 1189 cliques massimi di lunghezza 2 nel tuo grafo. In modo simile, "3 2858" indica che ci sono 2858 cliques massimi di lunghezza 3, "4 4929" indica che ci sono 4929 cliques massimi di lunghezza 4 e così via.
+
+Quindi, l'output che hai fornito indica il numero di cliques massimi di diverse lunghezze presenti nel tuo grafo. Ad esempio, ci sono 1189 cliques massimi di lunghezza 2, 2858 cliques massimi di lunghezza 3 e così via fino a 19.
+
+Questi numeri possono fornire informazioni sulla distribuzione dei cliques massimi nel tuo grafo e sulla presenza di strutture particolari. Ad esempio, un numero elevato di cliques massimi di lunghezza 4 potrebbe indicare gruppi densamente interconnessi nel tuo grafo.
+
+
+#CLUSTERING
+
+Il clustering è il processo di suddividere un grafo o un insieme di dati in gruppi omogenei, chiamati cluster, in base a determinati criteri di similarità. Nel contesto di cluster_edge_betweenness, il clustering viene eseguito utilizzando la centralità di intermediazione degli archi per individuare gruppi di nodi strettamente collegati tra loro attraverso archi con una centralità di intermediazione elevata.
+
+In poche parole, cluster_edge_betweenness(g) suddivide il tuo grafo in cluster sulla base dell'importanza degli archi nella connettività tra i nodi. I cluster individuati rappresentano gruppi di nodi che sono fortemente connessi tra loro attraverso archi con una centralità di intermediazione elevata.
+
+
+```{r}
+
+ceb = cluster_edge_betweenness(g)
+
+```
+# CONNECTIVITY
+
+A vertex is said to be reachable from another vertex if there exists a walk between them two.
+
+The graph is said to be connected if every vertex is reachable from every other vertex.
+
+A component of a graph is a maximally connected subgraph.
+
+```{r}
+is.connected(g)
+```
+In pratica, se is.connected(g) restituisce TRUE, significa che non ci sono nodi isolati o gruppi di nodi che non sono connessi ad altri nodi nel grafo. Ciò implica che esiste almeno un percorso tra ogni coppia di nodi, quindi tutti i nodi nel grafo possono essere raggiunti da qualsiasi altro nodo tramite una sequenza di archi.
+
+
+Weakly connected: if the graph is connected ignoring the directionality of all edges
+
+Strongly connected: every vertex is reachable from another vertex by a directed walk.
+
+```{r}
+is.connected(g, mode = "weak")
+
+is.connected(g, mode = "strong")
+```
 
 
 
