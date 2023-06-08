@@ -11,20 +11,299 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+SPIEGAZIONE DATASET 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
 
-```{r cars}
-summary(cars)
+edges <- read.table("twitch/PTBR/musae_PTBR_edges.csv", header = TRUE, sep = ",")
+
+edges
+
+colnames(edges) = c("X1", "X2")
+
+nodes <- read.table("twitch/PTBR/musae_PTBR_target.csv", header = TRUE, sep = ",")
+
+nodes
+
+# Rimuovi la colonna "nome_colonna" dal dataset "nome_dataset"
+nodes$id <- NULL
+
+nodes <- nodes[, c("new_id", names(nodes)[-ncol(nodes)])]
+
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+library(tidyverse)
+
+data = data %>% arrange(X1, X2)
+
+weighted <- data %>%
+  group_by(X1, X2) %>%
+  summarise(weight = n()) %>%
+  filter(X1 < X2)
+
+print(weighted)
+summary(weighted$weight)
+
+```
+```{r}
+
+data <- merge(edges,target, by.x ="X1", by.y='new_id')
+head(data)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r, echo=FALSE}
+
+library(igraph)
+
+
+# Controlla i nomi dei nodi mancanti o incompatibili
+missing_nodes <- setdiff(unique(c(edges$X1, edges$X2)), nodes$new_id)
+print(missing_nodes)
+
+# Converti i nomi dei nodi in caratteri
+edges$X1 <- as.numeric(edges$X1)
+edges$X2 <- as.numeric(edges$X2)
+nodes$new_id <- as.numeric(nodes$new_id)
+
+# Ordinare il dataset in base alla colonna "numero" in modo crescente
+nodes <- nodes[order(nodes$new_id), ]
+
+
+g <- graph_from_data_frame(edges, directed = FALSE, vertices = nodes)
+
+plot(g)
+
+m <- layout_as_tree(g)
+plot(g, vertex.label.color = "black", layout = m)
+
+plot(g, 
+     vertex.label.color = "black", 
+     edge.color = 'gray77',
+     vertex.size = 0,
+     edge.arrow.size = 0.1,
+     layout = layout_nicely(g))
+
+V(g) 
+
+V(g)$views = nodes$views
+
+plot(g, layout=layout_with_fr(g))
+
+gorder(g) #1912 nodes
+
+edges(g) 
+
+E(g)
+
+gsize(g) #edges 31299
+
+is.weighted(g)
+
+if (is.directed(g)) {
+  print("Il network dataset è diretto")
+} else {
+  print("Il network dataset non è diretto")
+}
+```
+
+2 TECHNICHE DI SUBSAMPLE:
+
+1) Puoi utilizzare le misure di centralità per identificare i nodi più "importanti" o "centrali" nel tuo grafo e selezionare un sottoinsieme di questi nodi.
+Ad esempio, puoi utilizzare la centralità di grado (degree centrality) o la centralità di vicinanza (closeness centrality) per identificare i nodi con una maggiore importanza.
+Puoi calcolare la centralità dei nodi nel tuo grafo utilizzando le funzioni degree() e closeness() di igraph e selezionare i nodi con i valori più alti.
+Successivamente, puoi creare un sottografo che contiene solo i nodi selezionati
+
+```{r}
+
+degree_centrality <- degree(g)
+top_nodes <- sort(degree_centrality, decreasing = TRUE)[1:200]
+length(top_nodes)
+g_sub <- induced_subgraph(g, top_nodes)
+?induced_subgraph
+
+
+V(g_sub)
+
+gorder(g_sub) #136 nodi
+
+gsize(g_sub) #146 edges
+
+
+plot(g_sub, 
+     vertex.label.color = "black", 
+     edge.color = 'gray77',
+     vertex.size = 0,
+     edge.arrow.size = 0.1,
+     layout = layout_nicely(g))
+
+```
+
+```{r}
+#SECONDA OPZIONE
+
+selected_nodes <- sample(V(g), size = 200)
+g_sub <- subgraph(g, selected_nodes)
+
+V(g_sub)
+
+E(g_sub)
+
+
+
+plot(g_sub, 
+     vertex.label.color = "blue", 
+     edge.color = 'red',
+     vertex.size = 3,
+     edge.arrow.size = 0.1,
+     layout = layout_nicely(g))
+
+```
+
+
+
+```{r}
+#Check th degrees
+
+g_degree = igraph :: degree(g)
+sort(g_degree, decreasing=TRUE) [1:10]
+
+plot(g_degree, V(g)$popularity)
+
+
+```
+
+
+
+Il network degree è una misura che indica il numero di connessioni che un nodo ha nel network. In un grafo non orientato, il degree di un nodo rappresenta il numero di archi che sono connessi a quel nodo. In altre parole, il degree di un nodo è il numero di vicini diretti di quel nodo nel grafo.
+
+L'output sort(g_degree, decreasing=TRUE) [1:100] rappresenta i primi 100 nodi ordinati in base al loro degree in ordine decrescente. Puoi interpretare questi valori come i nodi più "importanti" o più "centrali" nel tuo grafo in base al numero di connessioni che hanno. Nodi con un degree elevato tendono ad essere più influenti nel network e possono svolgere un ruolo chiave nella diffusione delle informazioni o nell'interazione tra i nodi.
+
+
+L'asse x del grafico rappresenta il degree dei nodi, ovvero il numero di connessioni che ogni nodo ha nel grafo. Maggiore è il degree di un nodo, più connessioni ha con altri nodi nel grafo.
+
+L'asse y del grafico rappresenta l'attributo di popolarità dei nodi. Questo attributo può essere un valore numerico o categorico che indica la popolarità o l'importanza di ciascun nodo nel contesto specifico del tuo grafo.
+
+Il grafico mostra come la popolarità dei nodi è correlata al loro degree. Puoi osservare se esiste una tendenza o un pattern evidente: ad esempio, se i nodi più popolari hanno anche un degree elevato o se ci sono nodi con un degree elevato ma bassa popolarità.
+
+
+#CLOSENESS
+
+La closeness (o centralità di vicinanza) è una misura di centralità utilizzata nell'analisi delle reti per quantificare la facilità con cui un nodo può raggiungere gli altri nodi nel grafo. Indica la distanza media tra un nodo e tutti gli altri nodi nel grafo.
+
+In pratica, l'output del codice restituirà i 10 nodi più centrali in base alla loro centralità di vicinanza nel grafo. Questi nodi avranno la distanza media più bassa rispetto a tutti gli altri nodi nel grafo, il che indica che possono raggiungere rapidamente altri nodi nel network.
+
+
+```{r}
+
+g_close = igraph :: closeness(g, mode="total")
+sort(g_close, decreasing = TRUE)[1:10]
+
+plot(g_close, V(g)$popularity)
+
+```
+
+L'asse x del grafico rappresenta la closeness dei nodi, ovvero la distanza media di ciascun nodo rispetto a tutti gli altri nodi nel grafo. Maggiore è la closeness di un nodo, più centrale è nel contesto di raggiungere rapidamente gli altri nodi nel grafo.
+
+L'asse y del grafico rappresenta l'attributo di popolarità dei nodi. Questo attributo può essere un valore numerico o categorico che indica la popolarità o l'importanza di ciascun nodo nel contesto specifico del tuo grafo.
+
+Il grafico mostra come la popolarità dei nodi è correlata alla loro closeness. Puoi osservare se esiste una tendenza o un pattern evidente: ad esempio, se i nodi più popolari tendono anche ad avere una closeness maggiore, indicando una posizione centrale nel grafo e una facilità di raggiungimento degli altri nodi.
+
+Se i valori di closeness e popolarità sono concentrati in una fascia al centro del grafico, ciò potrebbe indicare una tendenza in cui i nodi centrali, con una distanza media relativamente bassa dagli altri nodi, sono anche quelli più popolari o importanti nel tuo grafo.
+
+
+
+#BETWEENESS
+
+La betweenness (o centralità di intermediazione) è una misura di centralità utilizzata nell'analisi delle reti per quantificare l'importanza di un nodo nel funzionamento di un grafo. Misura il numero di volte che un nodo si trova lungo il percorso più breve tra tutte le coppie di nodi nel grafo.
+
+In pratica, l'output del codice restituirà i dieci nodi più centrali in base alla loro centralità di intermediazione nel grafo. Questi nodi hanno un'importanza significativa nel funzionamento del grafo, poiché si trovano lungo numerosi percorsi più brevi tra gli altri nodi. Possono fungere da ponti o hub di comunicazione critici nel network.
+
+```{r}
+
+g_between = igraph :: betweenness(g)
+sort(g_between, decreasing = TRUE)[1:10]
+
+plot(g_between, V(g)$popularity)
+
+```
+
+#PAGERANK
+
+```{r}
+g_pr = igraph::page.rank(g)$vector
+sort(g_pr, decreasing=TRUE)[1:10]
+
+plot(g_pr, V(g)$popularity)
+```
+
+Il PageRank è un algoritmo utilizzato nell'analisi delle reti per assegnare un punteggio di importanza a ciascun nodo in un grafo direzionato. L'idea alla base del PageRank è che i nodi che ricevono molti collegamenti (incoming) da nodi importanti sono a loro volta considerati importanti.
+
+In pratica, l'output del codice restituisce i dieci nodi più importanti o influenti nel grafo in base al loro punteggio di PageRank. Questi nodi sono considerati più importanti perché ricevono un maggior numero di collegamenti (incoming) da nodi importanti nel grafo.
+
+L'interpretazione del grafico dipende dalla specifica struttura del tuo grafo e dal contesto dell'analisi. I nodi con un alto punteggio di PageRank possono essere considerati hub centrali o nodi di importanza critica nel grafo. Puoi esaminare ulteriormente questi nodi per capire perché sono considerati importanti e come influenzano la struttura e il flusso delle informazioni nel tuo grafo.
+
+# EDGE BETWEENESS
+
+
+L'edge_betweenness (centralità di intermediazione degli archi) è una misura di centralità utilizzata nell'analisi delle reti per valutare l'importanza degli archi all'interno di un grafo. Indica quanti dei cammini più brevi tra tutte le coppie di nodi passano attraverso ciascun arco nel grafo.
+
+
+In pratica, l'output del codice ti fornisce una lista degli archi del grafo in ordine decrescente di centralità di intermediazione. Gli archi con un alto valore di centralità di intermediazione sono quelli che sono critici per la connettività e per il flusso di informazioni nel grafo. Questi archi possono fungere da ponti o collegamenti chiave tra diverse parti del grafo. L'analisi degli archi con elevata centralità di intermediazione può fornire una comprensione più approfondita della struttura e delle dinamiche del tuo grafo.
+
+
+```{r}
+
+betweenness <- igraph::edge_betweenness(g)
+edge <- igraph::E(g)
+edge_names <- igraph::get.edge.attribute(g, "name")
+edge_table <- tibble(edge = edge_names, betweenness = betweenness) %>% arrange(desc(betweenness))
+
+```
+
+#DIAMETER
+
+Il diameter (diametro) di un network è una misura utilizzata nell'analisi delle reti per valutare la massima distanza tra due nodi nel grafo. Rappresenta la lunghezza del cammino più lungo tra due nodi all'interno del network.
+
+In altre parole, il diameter rappresenta il numero massimo di passi o collegamenti necessari per spostarsi dal nodo più lontano da un altro nodo nel network. Può essere interpretato come una misura della massima distanza o separazione tra due nodi nel grafo.
+
+```{r}
+
+igraph::diameter(g)
+
+```
+
+Quando il diameter del grafo è uguale a 7, significa che il cammino più lungo tra due nodi nel tuo grafo richiede al massimo 7 passi o collegamenti. Ciò implica che non ci sono coppie di nodi che richiedono un numero di passi superiore a 7 per essere raggiunte l'una dall'altra.
+
+# CLIQUES
+
+In un grafo, un clique rappresenta un sottografo completo, ovvero un gruppo di nodi in cui ogni coppia di nodi è connessa da un arco. In altre parole, in un clique tutti i nodi sono collegati tra loro direttamente.
+
+Un clique massimo è un clique che non può essere espanso aggiungendo altri nodi senza violare la definizione di clique. In altre parole, è il più grande sottografo completo che puoi trovare nel grafo senza aggiungere altri nodi.
+
+In pratica, l'output del codice ti fornisce un conteggio delle lunghezze dei cliques massimi presenti nel tuo grafo. 
+
+```{r}
+igraph::max_cliques(g) %>% map_dbl(length) %>% table()
+```
+
+
+
+
+```{r setup, include=FALSE}
+
+library(igraph)
+layout <- layout_in_sphere(g)
+
+```
+
+```{r}
+install.packages("visNetwork")
+library(visNetwork)
+library(igraph)
+```
+
